@@ -1,9 +1,11 @@
 <script>
   import { createEventDispatcher, onDestroy, onMount } from "svelte";
+  import { noop } from 'svelte/internal';
   import pdfjs from "pdfjs-dist";
   import pdfjsViewer from "pdfjs-dist/web/pdf_viewer.js";
 
   export let src;
+  // most of these don't need to be props
   export let scale = "page-width";
   export let cMapSrc = "/pdfjs/cmaps";
   export let cMapPacked = true;
@@ -20,6 +22,13 @@
   let containerRef;
   let pdfViewer;
   async function load(src) {
+
+    // This is how I was able to disable rendering text to the canvas
+    // if you uncomment this and then comment out the specified styles it will achieve
+    // the same effect
+    // CanvasRenderingContext2D.prototype.strokeText = noop;
+    // CanvasRenderingContext2D.prototype.fillText = noop;
+
     // (Optionally) enable hyperlinks within PDF files.
     const pdfLinkService = new pdfjsViewer.PDFLinkService();
     pdfViewer = new pdfjsViewer.PDFViewer({
@@ -28,20 +37,30 @@
       ...pdfViewerOptions,
     });
     pdfLinkService.setViewer(pdfViewer);
-    // Loading document.
+
+    // fetch document
+    // uncomment this if you are fetching the pdf through a proxy
+    // const response = await fetch(`http://localhost:8080?url=${src}`);
+    // const data = await response.arrayBuffer();
+
+    // load docuument
     const loadingTask = pdfjs.getDocument({
+      // data, // use this instead of url: src if you are fetching from a proxy (it provides the pdf as a array buffer)
       url: src,
       ...documentOptions,
     });
+
     loadingTask.promise.then(function (pdfDocument) {
       // Document loaded, specifying document for the viewer and the (optional) linkService.
       pdfViewer.setDocument(pdfDocument);
       pdfLinkService.setDocument(pdfDocument, null);
     });
   }
+
   $: if (containerRef && src) {
     load(src);
   }
+
   function pagesInit() {
     if (pdfViewer) {
       // We can use pdfViewer now, e.g. let's change default scale.
@@ -49,6 +68,17 @@
       dispatch("load", { src, pdfViewer, element: containerRef });
     }
   }
+
+  onMount(() => {
+    // 
+    setTimeout(() => {
+    new Vidy({
+      appid: 'bd051c1e-33ae-4ffa-b3d7-74f10a949ed7',
+			postid: 'demo-post-slug-pdf',
+			autoload: true
+    });
+    }, 2000); // this is just temporary and will eventually happen after the pdf loads instead of on a timer
+  })
 </script>
 
 <style>
@@ -63,7 +93,7 @@
     right: 0;
     bottom: 0;
     overflow: hidden;
-    opacity: 0.2;
+    opacity: 0.2; /* comment this line if you disable text rendering on the canvas */
     line-height: 1;
     border-bottom: 1px solid black;
   }
@@ -73,7 +103,7 @@
     }
   }
   .pdfjs-container :global(.textLayer > span) {
-    color: transparent;
+    color: transparent; /* comment this line if you disable text rendering on the canvas */
     position: absolute;
     white-space: pre;
     cursor: text;
@@ -140,7 +170,7 @@
     opacity: 0.2;
     background: #ff0;
     box-shadow: 0px 2px 10px #ff0;
-  }
+  } 
   .pdfjs-container :global(.annotationLayer .textAnnotation img) {
     position: absolute;
     cursor: pointer;
@@ -339,6 +369,7 @@
 
   .pdfjs-container :global(.pdfViewer *) {
     max-width: 100%;
+    opacity: 1;
   }
   .pdfjs-container :global(.pdfViewer .canvasWrapper) {
     overflow: hidden;
